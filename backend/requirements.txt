@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pandas
+openpyxl
+duckdb
+sqlalchemy
+anthropic
+python-multipart
+tabulate

@@ -1,0 +1,20 @@
+/app
+  /page.tsx          ← Landing page
+  /login/page.tsx    ← Auth
+  /dashboard
+    /page.tsx        ← Overview + charts
+    /chat/page.tsx   ← หน้าแชทหลัก
+    /files/page.tsx  ← จัดการไฟล์ที่ upload
+    /settings/page.tsx ← แพ็กเกจ + billing
+
+/components
+  /chat
+    ChatBox.tsx      ← กล่องแชท
+    MessageBubble.tsx
+    FilePreview.tsx
+  /dashboard
+    RevenueChart.tsx
+    SummaryCard.tsx
+  /upload
+    Dropzone.tsx
+    ColumnMapper.tsx  ← ให้ user confirm column mapping

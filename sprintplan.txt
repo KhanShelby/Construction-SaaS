@@ -1,0 +1,41 @@
+Sprint Plan — SaaS Excel Chatbot
+
+🏁 Phase 0 — ก่อนเริ่ม (วันแรก)
+ก่อน sprint 1 ต้องมีสิ่งเหล่านี้พร้อมก่อน
+
+ตั้ง repo GitHub
+ตั้ง project structure (FastAPI + Next.js)
+สมัคร Gemini API / Claude API เอา key มา
+สมัคร Supabase (database + auth)
+ตั้ง environment variables
+
+
+Sprint 1 — Excel Parser + DuckDB
+เป้าหมาย: อ่าน Excel ได้ และถาม SQL ได้ใน terminal
+งานรายละเอียดExcel Parserอ่านไฟล์, detect header row, unmerge cellsSchema Analyzerส่ง sample ให้ LLM วิเคราะห์ว่า column ไหนคืออะไรDuckDB Setupเอาข้อมูลที่ clean แล้วเก็บลง DuckDBText-to-SQLรับคำถามภาษาไทย → แปลงเป็น SQL → รันบน DuckDBTestทดสอบด้วย Excel จริงๆ ที่รก ไม่ระเบียบ
+Definition of Done: พิมพ์คำถามใน terminal แล้วได้คำตอบภาษาไทยกลับมา
+
+Sprint 2 — Backend API
+เป้าหมาย: ทุกอย่างเป็น API endpoint พร้อมใช้
+งานรายละเอียดFastAPI Setupโครงสร้าง project, router, middlewareFile Upload APIPOST /api/upload รับ Excel แล้วประมวลผลChat APIPOST /api/chat รับคำถาม ตอบกลับแบบ streamingUser & Quota Systemเช็ค usage ต่อ user, block เมื่อเกิน limitAuthSupabase JWT validation ทุก request
+Definition of Done: เรียก API ด้วย Postman แล้วได้คำตอบ, quota ทำงานถูกต้อง
+
+Sprint 3 — Frontend Web App
+เป้าหมาย: มีหน้าเว็บให้ใช้งานได้จริง
+งานรายละเอียดNext.js Setupโครงสร้าง, Tailwind, shadcn/uiAuth PagesLogin / Register เชื่อม SupabaseUpload PageDrag & drop Excel, preview ข้อมูล, confirm columnChat PageChat UI, streaming response, ประวัติแชทFile Managerดูไฟล์ที่ upload ไว้, ลบ, เพิ่มใหม่
+Definition of Done: เปิดเบราว์เซอร์ → login → upload Excel → ถามคำถาม → ได้คำตอบ
+
+Sprint 4 — Billing + Subscription
+เป้าหมาย: เก็บเงินได้จริง
+งานรายละเอียดStripe Integrationสมัคร Stripe, ตั้ง product และ pricePricing Pageหน้าเลือกแพ็กเกจ Basic / Pro / BusinessWebhook Handlerรับ event จาก Stripe เมื่อจ่ายเงินสำเร็จ → upgrade planUsage Dashboardแสดงว่าใช้ไปกี่คำถาม เหลืออีกเท่าไหร่Auto ResetCron job reset quota ทุกวันที่ 1 ของเดือน
+Definition of Done: จ่ายเงินผ่าน Stripe แล้ว plan upgrade อัตโนมัติ
+
+Sprint 5 — LINE OA Integration
+เป้าหมาย: ถามผ่าน LINE ได้เลย
+งานรายละเอียดLINE Webhookรับข้อความจาก LINE OALink Accountผูก LINE ID กับ user account ในระบบFile via LINEส่งไฟล์ Excel มาทาง LINE ได้เลยReply Streamingตอบกลับทาง LINE พร้อม format สวยงามQuota Checkเช็ค quota เหมือนกับ Web app
+Definition of Done: ส่ง Excel มาทาง LINE แล้วถามคำถามได้เลย ไม่ต้องเปิดเว็บ
+
+Sprint 6 — Polish + Launch Prep
+เป้าหมาย: พร้อม launch จริง
+งานรายละเอียดError Handlingจัดการ error ทุก case ให้ user เห็น message ชัดเจนLoading Statesทุก action มี feedback ไม่ค้างเงียบOnboardingสอนการใช้งานครั้งแรก มี template คำถามให้ลองLanding Pageหน้าแรกอธิบายระบบ, pricing, CTADeployRailway / Render + CloudflareBeta Testหาลูกค้าทดลองใช้ 5-10 ราย เก็บ feedback
+Definition of Done: มีลูกค้า beta ใช้งานได้จริง และจ่ายเงินได้
