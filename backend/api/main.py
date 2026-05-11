@@ -5,6 +5,9 @@ from typing import Optional
 import tempfile, os, json
 from datetime import date
 import duckdb, uuid
+from fastapi import WebSocket, WebSocketDisconnect
+import asyncio, json
+
 
 from core.excel_parser  import import_excel_pipeline
 from core.chatbot       import chat as chatbot_chat
@@ -337,3 +340,52 @@ def me(user=Depends(get_current_user)):
         "usage_count": user.get("usage_count"),
         "plan_limit":  user.get("plan_limit"),
     }
+
+
+@app.websocket("/ws/chat")
+async def websocket_chat(
+    websocket: WebSocket,
+    user_id: str = "user-001",   # รับจาก query param ?user_id=xxx
+):
+    await websocket.accept()
+    history = []  # จำประวัติแชทใน session นี้
+ 
+    try:
+        while True:
+            data    = await websocket.receive_text()
+            payload = json.loads(data)
+            message = payload.get("message", "")
+ 
+            # เรียก chatbot.py
+            result = chatbot_chat(
+                question=message,
+                user_id=user_id,
+                history=history,
+            )
+            answer = result["answer"]
+ 
+            # อัปเดต history (เก็บแค่ 10 รอบล่าสุด)
+            history.append({"role": "user",      "content": message})
+            history.append({"role": "assistant",  "content": answer})
+            if len(history) > 20:
+                history = history[-20:]
+ 
+            # ส่ง SQL ที่ใช้ก่อน (chat-ui.html จะแสดงได้)
+            if result.get("sql_used"):
+                await websocket.send_text(json.dumps({
+                    "type":    "sql",
+                    "content": result["sql_used"],
+                }))
+ 
+            # ส่งทีละ word — simulate streaming
+            for word in answer.split():
+                await websocket.send_text(json.dumps({
+                    "type":    "chunk",
+                    "content": word + " ",
+                }))
+                await asyncio.sleep(0.03)
+ 
+            await websocket.send_text(json.dumps({"type": "done"}))
+ 
+    except WebSocketDisconnect:
+        pass

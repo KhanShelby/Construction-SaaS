@@ -2,50 +2,47 @@
 "use client"
 import { useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { uploadFile, type FileRecord } from "@/lib/api"
+import { uploadFile, type ImportResult } from "@/lib/api"   // ← เปลี่ยนจาก FileRecord
 import { DataPreview } from "@/components/upload/DataPreview"
-import { Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle, XCircle } from "lucide-react"
 import * as XLSX from "xlsx"
 
 type Stage = "idle" | "preview" | "uploading" | "done" | "error"
 
 export default function UploadPage() {
-  const router = useRouter()
+  const router  = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [stage, setStage] = useState<Stage>("idle")
-  const [dragging, setDragging] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
-  const [previewData, setPreviewData] = useState<{ headers: string[]; rows: unknown[][] } | null>(null)
-  const [uploadedFile, setUploadedFile] = useState<FileRecord | null>(null)
-  const [error, setError] = useState("")
+  const [stage,        setStage]        = useState<Stage>("idle")
+  const [dragging,     setDragging]     = useState(false)
+  const [file,         setFile]         = useState<File | null>(null)
+  const [previewData,  setPreviewData]  = useState<{ headers: string[]; rows: unknown[][] } | null>(null)
+  const [uploadedFile, setUploadedFile] = useState<ImportResult | null>(null)  // ← ImportResult
+  const [error,        setError]        = useState("")
 
   const parseExcel = useCallback((f: File) => {
     const reader = new FileReader()
     reader.onload = (e) => {
-      const wb = XLSX.read(e.target?.result, { type: "binary" })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-      const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][]
+      const wb      = XLSX.read(e.target?.result, { type: "binary" })
+      const ws      = wb.Sheets[wb.SheetNames[0]]
+      const data    = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][]
       const headers = (data[0] as string[]) || []
-      const rows = data.slice(1, 11) // preview first 10 rows
+      const rows    = data.slice(1, 11)
       setPreviewData({ headers, rows })
       setStage("preview")
     }
     reader.readAsBinaryString(f)
   }, [])
 
-  const handleFile = useCallback(
-    (f: File) => {
-      if (!f.name.match(/\.(xlsx|xls|csv)$/i)) {
-        setError("รองรับเฉพาะไฟล์ .xlsx, .xls, .csv")
-        setStage("error")
-        return
-      }
-      setFile(f)
-      setError("")
-      parseExcel(f)
-    },
-    [parseExcel]
-  )
+  const handleFile = useCallback((f: File) => {
+    if (!f.name.match(/\.(xlsx|xls|csv)$/i)) {
+      setError("รองรับเฉพาะไฟล์ .xlsx, .xls, .csv")
+      setStage("error")
+      return
+    }
+    setFile(f)
+    setError("")
+    parseExcel(f)
+  }, [parseExcel])
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -58,8 +55,17 @@ export default function UploadPage() {
     if (!file) return
     setStage("uploading")
     try {
-      const record = await uploadFile(file)
-      setUploadedFile(record)
+      const result = await uploadFile(file)
+
+      // เช็คว่า import สำเร็จจริงไหม
+      const hasSuccess = result.sheets.some(s => s.status === "success")
+      if (!hasSuccess && result.errors.length > 0) {
+        setError(result.errors.join(", "))
+        setStage("error")
+        return
+      }
+
+      setUploadedFile(result)
       setStage("done")
     } catch (e) {
       setError(e instanceof Error ? e.message : "อัปโหลดไม่สำเร็จ")
@@ -75,6 +81,15 @@ export default function UploadPage() {
     setError("")
   }
 
+  // ── helper ดึงชื่อไฟล์จาก path ──
+  const getFilename = (path: string) =>
+    path.split("\\").pop()?.split("/").pop() ?? path
+
+  // ── สรุปผล import ──
+  const successSheets = uploadedFile?.sheets.filter(s => s.status === "success") ?? []
+  const errorSheets   = uploadedFile?.sheets.filter(s => s.status !== "success") ?? []
+  const totalRows     = successSheets.reduce((sum, s) => sum + (s.rows || 0), 0)
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-4xl mx-auto px-6 py-8">
@@ -83,7 +98,7 @@ export default function UploadPage() {
           <p className="text-zinc-500 text-sm mt-1">อัปโหลดไฟล์ Excel หรือ CSV เพื่อเริ่มวิเคราะห์</p>
         </div>
 
-        {/* Idle / Drop zone */}
+        {/* ── Idle / Drop zone ── */}
         {(stage === "idle" || stage === "error") && (
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
@@ -113,7 +128,6 @@ export default function UploadPage() {
                 <p className="text-zinc-700 text-xs mt-2">รองรับ .xlsx, .xls, .csv</p>
               </div>
             </div>
-
             {stage === "error" && (
               <div className="mt-6 flex items-center gap-2 text-red-400 text-sm justify-center">
                 <AlertCircle className="w-4 h-4" />
@@ -123,7 +137,7 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* Preview */}
+        {/* ── Preview ── */}
         {stage === "preview" && previewData && (
           <div className="space-y-6">
             <div className="flex items-center gap-3 p-4 bg-zinc-900 border border-zinc-800 rounded-xl">
@@ -155,26 +169,63 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* Uploading */}
+        {/* ── Uploading ── */}
         {stage === "uploading" && (
           <div className="flex flex-col items-center gap-4 py-24">
             <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" />
-            <p className="text-zinc-400">กำลังอัปโหลด...</p>
+            <p className="text-zinc-400">กำลังอัปโหลดและวิเคราะห์ข้อมูล...</p>
           </div>
         )}
 
-        {/* Done */}
+        {/* ── Done ── */}
         {stage === "done" && uploadedFile && (
-          <div className="flex flex-col items-center gap-6 py-20">
+          <div className="flex flex-col items-center gap-6 py-12">
             <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center">
               <CheckCircle2 className="w-8 h-8 text-emerald-400" />
             </div>
+
             <div className="text-center">
               <p className="text-zinc-100 font-semibold">อัปโหลดสำเร็จ!</p>
               <p className="text-zinc-500 text-sm mt-1">
-                {uploadedFile.filename} · {uploadedFile.rows} แถว · {uploadedFile.columns.length} คอลัมน์
+                {getFilename(uploadedFile.file)}
+                &nbsp;·&nbsp;{successSheets.length} sheet
+                &nbsp;·&nbsp;{totalRows} แถว
               </p>
             </div>
+
+            {/* แสดงรายละเอียดแต่ละ sheet */}
+            <div className="w-full max-w-sm space-y-2">
+              {uploadedFile.sheets.map((s, i) => (
+                <div
+                  key={i}
+                  className={`flex items-center justify-between px-4 py-2.5 rounded-lg text-sm ${
+                    s.status === "success"
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : "bg-zinc-800 text-zinc-500"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {s.status === "success"
+                      ? <CheckCircle2 className="w-4 h-4" />
+                      : <XCircle className="w-4 h-4" />
+                    }
+                    {s.sheet}
+                    {s.table_type && (
+                      <span className="text-xs opacity-60">({s.table_type})</span>
+                    )}
+                  </span>
+                  <span>{s.status === "success" ? `${s.rows} แถว` : s.reason ?? "ข้ามแล้ว"}</span>
+                </div>
+              ))}
+
+              {/* errors */}
+              {uploadedFile.errors.length > 0 && (
+                <div className="px-4 py-2.5 rounded-lg bg-red-500/10 text-red-400 text-xs">
+                  {uploadedFile.errors.join(", ")}
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-3">
               <button
                 onClick={reset}
@@ -183,7 +234,7 @@ export default function UploadPage() {
                 อัปโหลดไฟล์อื่น
               </button>
               <button
-                onClick={() => router.push(`/dashboard/chat?file=${uploadedFile.id}`)}
+                onClick={() => router.push("/dashboard/chat")}  // ← ไม่ส่ง file id แล้ว chatbot query จาก DB โดยตรง
                 className="px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition"
               >
                 เริ่มถามคำถาม →
