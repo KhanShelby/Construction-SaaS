@@ -9,21 +9,24 @@ export interface Message {
   content: string
   timestamp: Date
   streaming?: boolean
+  sql?: string        // SQL ที่ใช้ดึงข้อมูล (optional แสดงใน UI ได้)
 }
 
-export function useChat(fileId?: string) {
-  const [messages, setMessages] = useState<Message[]>([])
+export function useChat() {   // ← ลบ fileId parameter ออก
+  const [messages,    setMessages]    = useState<Message[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
-  const socketRef = useRef<ChatSocket | null>(null)
-  const streamingIdRef = useRef<string | null>(null)
+  const socketRef       = useRef<ChatSocket | null>(null)
+  const streamingIdRef  = useRef<string | null>(null)
 
   const connect = useCallback(async () => {
     if (socketRef.current?.isOpen) return
-    const socket = new ChatSocket(fileId)
+
+    const socket = new ChatSocket()   // ← ไม่ส่ง fileId แล้ว
+
     try {
       await socket.connect(
-        // onChunk
+        // onChunk — รับ text ทีละ word
         (chunk) => {
           setMessages((prev) =>
             prev.map((m) =>
@@ -33,12 +36,14 @@ export function useChat(fileId?: string) {
             )
           )
         },
-        // onDone
+        // onDone — streaming เสร็จ
         () => {
           setIsStreaming(false)
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === streamingIdRef.current ? { ...m, streaming: false } : m
+              m.id === streamingIdRef.current
+                ? { ...m, streaming: false }
+                : m
             )
           )
           streamingIdRef.current = null
@@ -49,49 +54,61 @@ export function useChat(fileId?: string) {
           setMessages((prev) => [
             ...prev,
             {
-              id: crypto.randomUUID(),
-              role: "assistant",
-              content: `❌ ${err}`,
+              id:        crypto.randomUUID(),
+              role:      "assistant",
+              content:   `❌ ${err}`,
               timestamp: new Date(),
             },
           ])
+        },
+        // onSql — รับ SQL ที่ใช้ แนบเข้า message ปัจจุบัน
+        (sql) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === streamingIdRef.current
+                ? { ...m, sql }
+                : m
+            )
+          )
         }
       )
+
       socketRef.current = socket
       setIsConnected(true)
     } catch {
       setIsConnected(false)
     }
-  }, [fileId])
+  }, [])    // ← ไม่มี fileId dependency แล้ว
 
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || isStreaming) return
 
-      // Add user message
+      // เพิ่ม user message
       const userMsg: Message = {
-        id: crypto.randomUUID(),
-        role: "user",
+        id:        crypto.randomUUID(),
+        role:      "user",
         content,
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, userMsg])
 
-      // Add empty assistant message for streaming
+      // เพิ่ม assistant message ว่างรอ streaming
       const assistantId = crypto.randomUUID()
       streamingIdRef.current = assistantId
       setMessages((prev) => [
         ...prev,
         {
-          id: assistantId,
-          role: "assistant",
-          content: "",
+          id:        assistantId,
+          role:      "assistant",
+          content:   "",
           timestamp: new Date(),
           streaming: true,
         },
       ])
       setIsStreaming(true)
 
+      // reconnect ถ้าหลุด
       if (!socketRef.current?.isOpen) {
         await connect()
       }

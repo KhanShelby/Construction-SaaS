@@ -9,7 +9,7 @@ export interface User {
 }
 
 const MOCK_USERS = [
-  { id: "1", email: "demo@example.com", password: "demo1234", name: "Demo User" },
+  { id: "user-001", email: "demo@example.com", password: "demo1234", name: "Demo User" },
 ]
 
 export async function login(email: string, password: string): Promise<User> {

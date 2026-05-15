@@ -6,19 +6,19 @@ import { ChatMessage } from "./ChatMessage"
 import { ChatInput } from "./ChatInput"
 import { MessageSquare, Wifi, WifiOff } from "lucide-react"
 
-interface Props {
-  fileId?: string
-}
-
+// ลบ Props fileId ออก — chatbot query จาก DuckDB ของ user โดยตรง
 const SUGGESTIONS = [
-  "ข้อมูลมีกี่แถวทั้งหมด?",
-  "สรุปภาพรวมของข้อมูลให้หน่อย",
-  "คอลัมน์ไหนมีค่า null บ้าง?",
-  "ยอดรวมของคอลัมน์ตัวเลขแต่ละคอลัมน์เป็นเท่าไหร่?",
+  "โครงการทั้งหมดของฉันมีอะไรบ้าง",
+  "กำไรคาดการณ์รวมทุกโครงการเท่าไหร่",
+  "มีค่าแรงค้างจ่ายอยู่เท่าไหร่",
+  "งวดงานไหนที่ยังไม่ได้รับเงินบ้าง",
+  "ค่าวัสดุรวมทุกโครงการเท่าไหร่",
+  "โครงการไหนกำไรมากที่สุด",
 ]
 
-export function ChatWindow({ fileId }: Props) {
-  const { messages, isConnected, isStreaming, sendMessage, clearMessages } = useChat(fileId)
+export function ChatWindow() {
+  // ไม่ส่ง fileId เข้า useChat แล้ว
+  const { messages, isConnected, isStreaming, sendMessage, clearMessages } = useChat()
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -52,25 +52,24 @@ export function ChatWindow({ fileId }: Props) {
               <MessageSquare className="w-7 h-7 text-zinc-600" />
             </div>
             <div className="text-center">
-              <p className="text-zinc-400 font-medium">เริ่มถามคำถามเกี่ยวกับข้อมูลได้เลย</p>
+              <p className="text-zinc-400 font-medium">ถามข้อมูลโครงการของคุณได้เลย</p>
               <p className="text-zinc-600 text-sm mt-1">
-                {fileId ? "ไฟล์พร้อมแล้ว" : "เลือกไฟล์ก่อนเริ่มแชท"}
+                ข้อมูลมาจากไฟล์ที่อัปโหลดไว้ทั้งหมด
               </p>
             </div>
 
-            {fileId && (
-              <div className="grid grid-cols-2 gap-2 max-w-lg w-full">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => sendMessage(s)}
-                    className="text-left px-4 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs text-zinc-400 hover:text-zinc-300 transition"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Suggestions — แสดงเสมอ ไม่ต้องรอ fileId */}
+            <div className="grid grid-cols-2 gap-2 max-w-lg w-full">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => sendMessage(s)}
+                  className="text-left px-4 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs text-zinc-400 hover:text-zinc-300 transition"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="space-y-1 py-4">
@@ -97,8 +96,8 @@ export function ChatWindow({ fileId }: Props) {
           )}
           <ChatInput
             onSend={sendMessage}
-            disabled={isStreaming || !fileId}
-            placeholder={!fileId ? "เลือกไฟล์ก่อนถามคำถาม" : "ถามอะไรก็ได้เกี่ยวกับข้อมูล..."}
+            disabled={isStreaming}                          // ← ลบ || !fileId ออก
+            placeholder="ถามอะไรก็ได้เกี่ยวกับโครงการ..."  // ← เปลี่ยน placeholder
           />
         </div>
       </div>
